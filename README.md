@@ -6,6 +6,12 @@ An unofficial MCP server that lets an AI agent draft a Boardy intro, and demo th
 
 Author: [Adam Pangelinan](https://github.com/adamtpang)
 
+## Is this plug and play?
+
+For a local demo, yes. `npx` is not available until this package is published, so today you clone the repo and point Claude Desktop or Cursor at `node dist/index.js`. The mock backend answers the tools with invented data.
+
+For the thing people mean by a production MCP (open Claude or ChatGPT, sign in, and talk to your real Boardy account), no. Boardy still has to ship the API, run an authorization server, and host this process on HTTPS. The resource-server side of OAuth (protected resource metadata and a bearer check) is wired. This repo does not issue tokens. The checklist is [docs/FOR-BOARDY.md](docs/FOR-BOARDY.md).
+
 ## Why this is worth shipping
 
 Boardy finds a specific person you need (a customer, an investor, a hire, a job, a partner, a supplier, an expert) and introduces you once you both agree. People already reach him by text, WhatsApp, X, or email, and from ChatGPT and Claude. The public guide for assistants is an email to `boardy@boardy.ai`: the assistant writes a brief, the user approves the exact text, and it goes out from the user's own mailbox.
@@ -65,6 +71,33 @@ The only accepted credential on that local server is the literal string `fixture
 ```
 
 Restart Claude Desktop. Ask it to list your Boardy intros. It should say the data is fake.
+
+After `npm publish` (not done yet; `boardy-mcp` was free on the npm registry when this was written), the same shape works without a checkout:
+
+```json
+{
+  "mcpServers": {
+    "boardy": {
+      "command": "npx",
+      "args": ["-y", "boardy-mcp"]
+    }
+  }
+}
+```
+
+A hosted server, once Boardy has a public HTTPS URL, is a URL entry. Claude, Cursor, and ChatGPT custom connectors all use that shape. OAuth starts only if the server answers `401` with protected resource metadata, which `BOARDY_AUTH=oauth` does.
+
+```json
+{
+  "mcpServers": {
+    "boardy": {
+      "url": "https://mcp.example.com/mcp"
+    }
+  }
+}
+```
+
+`https://mcp.example.com` is a placeholder. This repo does not host a server there.
 
 ## Configure Cursor
 
@@ -150,7 +183,17 @@ BOARDY_API_KEY="fixture" \
 node dist/index.js
 ```
 
-Point `BOARDY_API_BASE_URL` at a real host only after Boardy publishes one. Prefer OAuth for a shared server. A personal token in the environment is enough for a local stdio process, and it stays on that machine.
+Point `BOARDY_API_BASE_URL` at a real host only after Boardy publishes one. On stdio, a personal token in the environment stays on that machine. On HTTP, `BOARDY_AUTH=oauth` checks a bearer token and, when the backend is `http`, forwards that token to the API. The dev bearer below is a localhost shared secret, not a login.
+
+```bash
+BOARDY_AUTH=oauth \
+BOARDY_OAUTH_ISSUER="https://auth.example.com" \
+BOARDY_PUBLIC_URL="http://127.0.0.1:3000/mcp" \
+BOARDY_DEV_BEARER="replace-me" \
+node dist/index.js http
+```
+
+`BOARDY_OAUTH_ISSUER` must be an authorization server Boardy runs. This process will not invent its metadata. `BOARDY_DEV_BEARER` is accepted only when the request Host is localhost or `127.0.0.1`, unless `BOARDY_ALLOW_DEV_BEARER=1`. For a real token check, set `BOARDY_INTROSPECTION_URL` to an RFC 7662 endpoint. See [docs/FOR-BOARDY.md](docs/FOR-BOARDY.md).
 
 ## What the public guide changed in the design
 
@@ -197,11 +240,16 @@ src/backend/email.ts     agents.md drafts, optional SMTP
 src/backend/http.ts      client for spec/openapi.yaml
 src/reference-api.ts     local server that speaks that spec with fixtures
 src/protocol/brief.ts    the email itself
+src/auth/                resource-server OAuth gate, not an authorization server
 ```
 
 ## SDK
 
-This uses the official MCP TypeScript SDK v2: `@modelcontextprotocol/server` and `@modelcontextprotocol/client`. v2 is the current line and speaks the 2026-07-28 spec. The older package name `@modelcontextprotocol/sdk` is the v1 maintenance line, so this repo does not build on it. Stdio is `serveStdio`. Streamable HTTP is `createMcpHandler` plus `@modelcontextprotocol/node`.
+This uses the official MCP TypeScript SDK v2, `@modelcontextprotocol/server` and `@modelcontextprotocol/client`, which the [typescript-sdk](https://github.com/modelcontextprotocol/typescript-sdk) repo calls the stable line for the 2026-07-28 spec. npm lists `@modelcontextprotocol/server` at 2.4.0 and `@modelcontextprotocol/sdk` at 1.32.2. The v1 package is the maintenance line (spec through 2025-11-25), so this repo does not build on it.
+
+That is not what every production server imports. GitHub's official server is Go and depends on `github.com/modelcontextprotocol/go-sdk` ([go.mod](https://github.com/github/github-mcp-server/blob/main/go.mod)). Sentry's MCP package lists both `@modelcontextprotocol/server` 2.4.0 and `@modelcontextprotocol/sdk` 1.32.2 in its [pnpm catalog](https://github.com/getsentry/sentry-mcp/blob/main/pnpm-workspace.yaml). Stripe, Linear, Notion, and Cloudflare document hosted HTTPS endpoints. Their server source is not the template this repo copies.
+
+Stdio is `serveStdio`. Streamable HTTP is `createMcpHandler` plus `@modelcontextprotocol/node`. Bearer checks use the SDK's `requireBearerAuth`.
 
 ## Development
 
@@ -221,7 +269,7 @@ Vitest covers the brief, the three backends, the reference API, and an in-proces
 
 1. Keep the mock honest and the email draft faithful to the public guide. That is this repo.
 2. If Boardy ships an API along these lines, set `BOARDY_BACKEND=http` and delete nothing else. The MCP server is already the client.
-3. OAuth with PKCE for a hosted MCP server, so a shared host never asks a user to paste a token into a config file.
+3. Host the HTTP server on a public HTTPS URL and point `BOARDY_OAUTH_ISSUER` at an authorization server Boardy operates (PKCE, and CIMD or DCR). The resource-server gate in this repo is the part that is already written.
 4. Webhooks for a new match, after Boardy describes an event. Not before.
 5. Leave inbox reading alone. If an assistant can already read the user's mail, the public guide tells it to point out messages from `boardy@boardy.ai`. That is the mail client, not this server.
 

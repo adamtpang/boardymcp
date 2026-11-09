@@ -23,10 +23,15 @@
   },
   "files": [
     "dist",
+    "docs",
     "spec",
+    "server.json",
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=20"
   },
@@ -36,6 +41,7 @@
     "start:http": "node dist/index.js http",
     "start:api": "node dist/index.js api",
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

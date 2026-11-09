@@ -1,0 +1,33 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.adamtpang/boardy",
+  "description": "Unofficial MCP server for Boardy intro drafts and fixture demos.",
+  "title": "Boardy (unofficial)",
+  "websiteUrl": "https://github.com/adamtpang/boardymcp",
+  "repository": {
+    "url": "https://github.com/adamtpang/boardymcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "boardy-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "BOARDY_BACKEND",
+          "description": "mock, email, or http. The default mock backend is fixture data.",
+          "default": "mock",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

@@ -47,6 +47,16 @@ describe("MCP server", () => {
     const session = await connect("mock");
     sessions.push(session);
     const listed = await session.client.listTools();
+    for (const tool of listed.tools) {
+      expect(tool.title, tool.name).toBeTruthy();
+      const annotations = tool.annotations ?? {};
+      expect(
+        annotations.readOnlyHint !== undefined || annotations.destructiveHint !== undefined,
+        tool.name,
+      ).toBe(true);
+    }
+    expect(listed.tools.find((tool) => tool.name === "list_intros")?.description).toMatch(/cursor/i);
+
     expect(listed.tools.map((tool) => tool.name).sort()).toEqual([
       "get_backend_status",
       "get_intro",

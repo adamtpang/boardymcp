@@ -19,7 +19,7 @@ export function mailtoLink(message: { to: string; subject: string; body: string 
 export function toDraft(message: { from: string | null; subject: string; body: string }): EmailDraft {
   return {
     to: BOARDY_EMAIL,
-    from: message.from,
+    ...(message.from ? { from: message.from } : {}),
     subject: message.subject,
     body: message.body,
     mailto: mailtoLink({ to: BOARDY_EMAIL, subject: message.subject, body: message.body }),

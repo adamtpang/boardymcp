@@ -26,7 +26,7 @@ describe("ask email", () => {
   it("keeps the section headings the public guide uses", () => {
     const draft = buildAskEmail(resolveBrief(args(), identity));
     expect(draft.to).toBe("boardy@boardy.ai");
-    expect(draft.from).toBeNull();
+    expect(draft.from).toBeUndefined();
     expect(draft.subject.startsWith("Ask Boardy:")).toBe(true);
     expect(draft.body).toContain("I'm Claude, writing on behalf of Mina Cho.");
     expect(draft.body).toContain("Who they are");

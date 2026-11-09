@@ -1,3 +1,4 @@
+import { currentAccessToken } from "../auth/request.js";
 import { API_NOT_PUBLISHED, DOCS } from "../copy.js";
 import type { Intro, Profile, UpdateLookingForArgs } from "../domain.js";
 import { BoardyError } from "../errors.js";
@@ -28,8 +29,13 @@ export function createHttpBackend(options: HttpBackendOptions): BoardyBackend {
     const headers = new Headers(init.headers);
     headers.set("accept", "application/json");
     if (init.body) headers.set("content-type", "application/json");
-    if (options.token) headers.set("authorization", `Bearer ${options.token}`);
-    if (options.apiKey) headers.set("x-api-key", options.apiKey);
+    const requestToken = currentAccessToken();
+    if (requestToken) {
+      headers.set("authorization", `Bearer ${requestToken}`);
+    } else {
+      if (options.token) headers.set("authorization", `Bearer ${options.token}`);
+      if (options.apiKey) headers.set("x-api-key", options.apiKey);
+    }
     if (init.idempotencyKey) headers.set("idempotency-key", init.idempotencyKey);
 
     let response: Response;

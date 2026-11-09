@@ -78,7 +78,7 @@ export async function startReferenceApi(options: {
         const recorded = await backend.requestIntro({
           goal,
           send: false,
-          draft: { to: "boardy@boardy.ai", from: null, subject, body: text, mailto: "mailto:boardy@boardy.ai" },
+          draft: { to: "boardy@boardy.ai", subject, body: text, mailto: "mailto:boardy@boardy.ai" },
           clientRequestId: key,
         });
         const payload = {

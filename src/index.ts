@@ -14,9 +14,16 @@ async function main(): Promise<void> {
   const backend = createBackend(config);
 
   if (command === "http") {
-    const running = await startMcpHttp(backend, config.identity, { host: config.host, port: config.port });
+    const running = await startMcpHttp(backend, config.identity, {
+      host: config.host,
+      port: config.port,
+      oauth: config.oauth,
+    });
+    const authNote = config.oauth
+      ? `oauth resource ${config.oauth.resource.href} (this process does not issue tokens)`
+      : "no auth, local only";
     console.error(
-      `boardy-mcp listening on http://${config.host}:${running.port}/mcp (backend ${config.backend}${config.backend === "mock" ? ", fixture data" : ""})`,
+      `boardy-mcp listening on http://${config.host}:${running.port}/mcp (backend ${config.backend}${config.backend === "mock" ? ", fixture data" : ""}; ${authNote})`,
     );
     return;
   }

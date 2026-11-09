@@ -15,12 +15,12 @@ export const API_NOT_PUBLISHED =
   "BOARDY_API_BASE_URL is not set. Boardy has not published this API. spec/openapi.yaml is a proposal, and the local reference server (boardy-mcp api) can exercise it with fixture data.";
 
 export const SERVER_INSTRUCTIONS = [
-  "Unofficial Boardy MCP server. Not affiliated with Boardy.",
+  "Unofficial Boardy MCP. Not affiliated with Boardy.",
   "The default backend is fixture data and never contacts Boardy.",
-  "The public way to reach Boardy is an email to boardy@boardy.ai. Do not send it until the user approves the exact text, and send it from the user's own mailbox.",
-  "Boardy introduces two people only after both agree. Do not invent email addresses or phone numbers. The fixtures omit them until both sides have accepted.",
-  "If a tool reports that this backend cannot do the operation, tell the user that. Do not guess intro status.",
-  "Status names in this server are a proposal. They are not field names from a Boardy API.",
+  "Do not email boardy@boardy.ai until the user approves the exact text, from their own mailbox.",
+  "An introduction happens only after both people agree. Do not invent email, phone, or status.",
+  "If a tool says this backend cannot do it, tell the user that.",
+  "Status names here are a proposal, not a Boardy API.",
 ].join(" ");
 
 export const DOCS = {

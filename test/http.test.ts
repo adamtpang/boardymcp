@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { requestAuth } from "../src/auth/request.js";
 import { createHttpBackend } from "../src/backend/http.js";
 import { createMockBackend } from "../src/backend/mock.js";
 import { startReferenceApi } from "../src/reference-api.js";
@@ -38,7 +39,6 @@ describe("proposed HTTP API", () => {
       clientRequestId: "same-key",
       draft: {
         to: "boardy@boardy.ai",
-        from: null,
         subject: "Ask Boardy: a pilot",
         body: "LinkedIn: https://example.com/fixtures/mina-cho",
         mailto: "mailto:boardy@boardy.ai",
@@ -50,7 +50,6 @@ describe("proposed HTTP API", () => {
       clientRequestId: "same-key",
       draft: {
         to: "boardy@boardy.ai",
-        from: null,
         subject: "Ask Boardy: a pilot",
         body: "LinkedIn: https://example.com/fixtures/mina-cho",
         mailto: "mailto:boardy@boardy.ai",
@@ -58,6 +57,23 @@ describe("proposed HTTP API", () => {
     });
     expect(created.intro?.id).toBe(again.intro?.id);
     expect(created.emailSent).toBe(false);
+  });
+
+  it("forwards the request bearer instead of the process token", async () => {
+    let seen = "";
+    const client = createHttpBackend({
+      baseUrl: "http://127.0.0.1:9",
+      token: "process-token",
+      fetchImpl: async (_url, init) => {
+        seen = new Headers(init?.headers).get("authorization") ?? "";
+        return new Response(JSON.stringify({ origin: "api", fixture: false, notice: "", fullName: "Mina Cho", links: {}, brief: {}, lookingFor: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    });
+    await requestAuth.run({ token: "user-token" }, () => client.getProfile());
+    expect(seen).toBe("Bearer user-token");
   });
 
   it("tells you when the API base URL is missing", async () => {

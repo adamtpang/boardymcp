@@ -15,6 +15,16 @@ const brief: RequestIntroArgs = {
 };
 
 describe("mock backend", () => {
+  it("pages introductions with a cursor", async () => {
+    const backend = createMockBackend();
+    const first = await backend.listIntros({ limit: 1 });
+    expect(first.items).toHaveLength(1);
+    expect(first.nextCursor).toBe("1");
+    const second = await backend.listIntros({ limit: 1, cursor: first.nextCursor });
+    expect(second.items).toHaveLength(1);
+    expect(second.items[0]?.id).not.toBe(first.items[0]?.id);
+  });
+
   it("labels every seeded intro as a fixture and hides contact until both agree", async () => {
     const backend = createMockBackend();
     const page = await backend.listIntros({ limit: 50 });

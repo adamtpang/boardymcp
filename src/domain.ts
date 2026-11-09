@@ -120,7 +120,7 @@ export const profileSchema = z.object({
 
 export const emailDraftSchema = z.object({
   to: z.literal("boardy@boardy.ai"),
-  from: z.string().nullable(),
+  from: z.string().optional(),
   subject: z.string(),
   body: z.string(),
   mailto: z.string(),

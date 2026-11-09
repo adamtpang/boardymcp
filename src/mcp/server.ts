@@ -129,8 +129,8 @@ export function createBoardyMcp(backend: BoardyBackend, identity: LocalIdentity)
     {
       title: "Backend status",
       description:
-        "Say which backend is connected, which operations it can actually perform, and whether the data is fixture data. Call this before telling the user you changed anything on their Boardy account.",
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+        "Use this when you need to know which backend is connected, which operations it can really perform, and whether the data is fixture data. Call it before telling the user you changed anything on a Boardy account.",
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       outputSchema: capabilitiesSchema,
     },
     async () => {
@@ -144,8 +144,8 @@ export function createBoardyMcp(backend: BoardyBackend, identity: LocalIdentity)
     {
       title: "Get my brief",
       description:
-        "Read the brief this server can see: who the user is, how the work is going, and who they want to meet. On the mock backend this is invented fixture data. On the email backend this is local configuration, not a profile read from Boardy. On the http backend this calls the proposed API.",
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: backend.kind === "http" },
+        "Use this when you need the brief this server can see: who the user is, how the work is going, and who they want to meet. On the mock backend this is invented fixture data. On the email backend this is local configuration, not a profile read from Boardy. On the http backend this calls the proposed API.",
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: backend.kind === "http" },
       outputSchema: profileResultSchema,
     },
     async () => {
@@ -168,7 +168,7 @@ export function createBoardyMcp(backend: BoardyBackend, identity: LocalIdentity)
     {
       title: "Update what I'm looking for",
       description:
-        "Replace what the user wants Boardy to search for. The mock and http backends store it. The email backend cannot update Boardy in place; it returns a short update email in the shape of the public guide, and you must not send that email until the user approves the exact text. Do not invent traction numbers.",
+        "Use this when the user wants to change who Boardy should look for. The mock and http backends store it. The email backend cannot update Boardy in place. It returns a short update email in the shape of the public guide, and you must not send that email until the user approves the exact text. Do not invent traction numbers.",
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: backend.kind !== "mock" },
       inputSchema: updateLookingForInputSchema,
       outputSchema: updateResultSchema,
@@ -219,8 +219,8 @@ export function createBoardyMcp(backend: BoardyBackend, identity: LocalIdentity)
     {
       title: "List introductions",
       description:
-        "List introductions and their proposed status. Mock data is fictional. The email backend cannot list anything, because the public guide has no read API. Declined and expired matches are included here so an agent can see them; the ChatGPT help text says the mobile view hides those.",
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: backend.kind === "http" },
+        "Use this when the user wants their introductions. Pass status to filter, and cursor from a previous nextCursor to get the next page. Mock data is fictional. The email backend cannot list anything, because the public guide has no read API. Declined and expired matches are included here. The ChatGPT help text says the mobile view hides those.",
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: backend.kind === "http" },
       inputSchema: listIntrosInputSchema,
       outputSchema: introPageSchema,
     },
@@ -249,8 +249,8 @@ export function createBoardyMcp(backend: BoardyBackend, identity: LocalIdentity)
     {
       title: "Get an introduction",
       description:
-        "Read one introduction by id. Email and phone are omitted until both people have agreed, which is the rule in Boardy's FAQ. The email backend has no ids and cannot read an introduction.",
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: backend.kind === "http" },
+        "Use this when you already have an introduction id. Email and phone are omitted until both people have agreed, which is the rule in Boardy's FAQ. The email backend has no ids and cannot read an introduction.",
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: backend.kind === "http" },
       inputSchema: z.object({
         introId: z.string().min(1).describe("Id from list_intros, such as fix_awaiting_you on the mock backend."),
       }),
@@ -277,7 +277,7 @@ export function createBoardyMcp(backend: BoardyBackend, identity: LocalIdentity)
     {
       title: "Request an introduction",
       description:
-        "Ask for an introduction using the sections in https://www.boardy.ai/agents.md. Returns the email draft and a mailto link. Does not send unless backend is email, send is true, the user approved that exact body, and SMTP is configured. The mock stores a fake request and sends nothing. The http backend POSTs the brief to the proposed API and does not send mail. Never invent LinkedIn URLs or traction numbers.",
+        "Use this when the user wants Boardy to find someone. Fill the sections from https://www.boardy.ai/agents.md. Returns the email draft and a mailto link. Does not send unless the backend is email, send is true, the user approved that exact body, and SMTP is configured. The mock stores a fake request and sends nothing. The http backend POSTs the brief to the proposed API and does not send mail. Never invent LinkedIn URLs or traction numbers. Pass clientRequestId to repeat the same request instead of creating another one.",
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: backend.kind !== "mock" },
       inputSchema: requestIntroInputSchema,
       outputSchema: requestResultSchema,
@@ -323,7 +323,7 @@ export function createBoardyMcp(backend: BoardyBackend, identity: LocalIdentity)
     {
       title: "Respond to an introduction",
       description:
-        "Accept a match, decline it with a reason, or propose meeting times. A decline without a reason is rejected. Accepting does not share contact details until the other person has also agreed. The mock updates fixture state only. The email backend cannot see the thread, so it returns a reply draft and changes nothing. Propose times does not book a calendar.",
+        "Use this when the user wants to accept a match, decline it, or propose meeting times. A decline needs a reason. Accepting does not share contact details until the other person has also agreed. The mock updates fixture state only. The email backend cannot see the thread, so it returns a reply draft and changes nothing. Propose times does not book a calendar.",
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: backend.kind !== "mock" },
       inputSchema: respondInputSchema,
       outputSchema: respondResultSchema,
