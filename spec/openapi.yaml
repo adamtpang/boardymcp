@@ -1,0 +1,725 @@
+openapi: 3.1.0
+info:
+  title: Boardy API (proposal)
+  version: 0.1.0
+  summary: A member API this unofficial MCP server would call if Boardy shipped one.
+  description: |
+    Unofficial proposal. Not a published Boardy API. Not affiliated with Boardy.
+
+    Written 2026-11-09 against Boardy's public pages only:
+    https://www.boardy.ai/agents.md, https://www.boardy.ai/agentskill.md,
+    https://www.boardy.ai/faq, https://www.boardy.ai/chatgpt-plugin/help,
+    and https://www.boardy.ai/llms.txt. APIs.io listed no Boardy API that day.
+
+    The public agent guide can send a brief to boardy@boardy.ai. It cannot
+    list introductions or record an accept or decline. This document is the
+    missing read and respond surface. Field names, status values, OAuth URLs,
+    and the api.boardy.ai host are suggestions. None of them were discovered
+    from a private endpoint.
+
+    Rules copied from the public FAQ and ChatGPT help, which an implementation
+    should keep:
+
+    - An introduction happens only after both people agree. Either person can say no.
+    - Email and phone are omitted until both have agreed. Public LinkedIn profile
+      information may be used before that.
+    - A decline includes a reason.
+    - An introduction is not guaranteed. If nobody fits, say so.
+    - Talking to Boardy and getting introductions is free. The FAQ says some
+      extras are paid, such as the partner model for events. This proposal
+      does not bill.
+    - Boardy caps how many new introductions it starts per day, and caps
+      introductions to potential customers separately. The FAQ does not publish
+      the numbers, so this spec does not invent them. Return 429 and
+      rate-limit headers instead.
+
+    The reference server in this repo (`boardy-mcp api`) implements these
+    routes with invented fixture data. Its only credential is the literal
+    token `fixture`.
+
+  license:
+    name: MIT
+    url: https://github.com/adamtpang/boardymcp/blob/main/LICENSE
+  contact:
+    name: Adam Pangelinan
+    url: https://github.com/adamtpang
+
+servers:
+  - url: https://api.boardy.ai
+    description: Proposed production host. Not live as of 2026-11-09.
+  - url: http://127.0.0.1:8787
+    description: Local reference server from this repo. Fixture data only.
+
+tags:
+  - name: Profile
+    description: The signed-in member's brief.
+  - name: Intros
+    description: Introductions and the member's response to them.
+
+security:
+  - oauth2:
+      - profile:read
+      - intros:read
+  - apiKey: []
+
+paths:
+  /v1/me:
+    get:
+      operationId: getMyBrief
+      tags: [Profile]
+      summary: Read the signed-in member's brief.
+      description: |
+        The same sections an assistant is asked to fill in the public email
+        guide: who they are, where things stand, who they want to meet, and links.
+      security:
+        - oauth2: [profile:read]
+        - apiKey: []
+      responses:
+        "200":
+          description: The member's brief.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+              example:
+                origin: api
+                fixture: false
+                notice: Example only. Not a real member.
+                fullName: Mina Cho
+                location: Austin, TX
+                timezone: America/Chicago
+                links:
+                  linkedin: https://example.com/fixtures/mina-cho
+                brief:
+                  asOf: November 2026
+                  howItsGoing: No paying customers yet.
+                  whoTheyWantToMeet: Independent bookstore operators who would pilot invoice import.
+                lookingFor: []
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/me/looking-for:
+    patch:
+      operationId: updateLookingFor
+      tags: [Profile]
+      summary: Replace what the member wants Boardy to search for.
+      description: |
+        This is the stored form of a short update email. It does not itself
+        send mail. The member is still the one Boardy is searching for.
+      security:
+        - oauth2: [profile:write]
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LookingForUpdate"
+      responses:
+        "200":
+          description: The brief after the update.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/intros:
+    get:
+      operationId: listIntros
+      tags: [Intros]
+      summary: List the member's introductions.
+      description: |
+        Includes declined and expired matches. The ChatGPT help text says the
+        mobile view hides those. An agent should still be able to see them
+        when the member asks.
+      security:
+        - oauth2: [intros:read]
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/Status"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of introductions.
+          headers:
+            X-RateLimit-Policy:
+              $ref: "#/components/headers/RateLimitPolicy"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntroPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/intros/{introId}:
+    get:
+      operationId: getIntro
+      tags: [Intros]
+      summary: Read one introduction.
+      description: |
+        Omit sharedContact until both people have agreed. Do not return a
+        guessed email or phone.
+      security:
+        - oauth2: [intros:read]
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/IntroId"
+      responses:
+        "200":
+          description: The introduction.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Intro"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/intro-requests:
+    post:
+      operationId: requestIntro
+      tags: [Intros]
+      summary: Ask Boardy to search for someone.
+      description: |
+        The body is the brief from the public agent guide, already approved
+        by the member. Creating the request starts a search. It does not mean
+        a person has been chosen, and it does not mean an introduction was sent.
+        Repeat the call with the same Idempotency-Key to get the original request
+        back instead of starting a second search.
+      security:
+        - oauth2: [intros.request]
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntroRequest"
+      responses:
+        "201":
+          description: The search was recorded. No person has been suggested yet.
+          headers:
+            X-RateLimit-Policy:
+              $ref: "#/components/headers/RateLimitPolicy"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntroRequestResult"
+        "200":
+          description: Idempotency-Key replay. The original request is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntroRequestResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/IntroCap"
+
+  /v1/intros/{introId}/responses:
+    post:
+      operationId: respondToIntro
+      tags: [Intros]
+      summary: Accept, decline, or propose times.
+      description: |
+        Accept records the member's yes. The other person still has to agree
+        before contact details are shared. Decline requires a reason, matching
+        the ChatGPT help text. propose_times stores availability. It does not
+        by itself book a calendar. Booking stays with Boardy once a calendar
+        is connected, which the marketing site already describes.
+      security:
+        - oauth2: [intros.respond]
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/IntroId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntroResponse"
+      responses:
+        "200":
+          description: The introduction after the response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntroEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: |
+        Proposed authorization code with PKCE (S256) for interactive agents
+        such as Claude Desktop and Cursor. Public clients must not use a
+        client secret. The authorization and token URLs below are names in
+        this proposal. They are not live Boardy endpoints.
+
+        A hosted MCP server would complete this flow and pass the access
+        token through. A local stdio server can instead use a personal token.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://api.boardy.ai/oauth/authorize
+          tokenUrl: https://api.boardy.ai/oauth/token
+          scopes:
+            profile:read: Read the signed-in member's brief.
+            profile:write: Update what the member is looking for.
+            intros:read: List and read introductions.
+            intros.request: Ask Boardy to search for someone new.
+            intros.respond: Accept, decline, or propose times.
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        Proposed personal token from a future settings page. Send it as
+        X-API-Key, or as Authorization Bearer. Same member, same scopes,
+        minted for one person. Prefer OAuth when one MCP host serves many
+        members. The local reference server accepts the literal value fixture
+        and nothing else.
+
+  parameters:
+    IntroId:
+      name: introId
+      in: path
+      required: true
+      schema:
+        type: string
+    Status:
+      name: status
+      in: query
+      required: false
+      description: Filter to one proposed status.
+      schema:
+        $ref: "#/components/schemas/IntroStatus"
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Caller-generated key. Replays return the original request.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 80
+
+  headers:
+    RateLimitPolicy:
+      description: |
+        Proposed. Boardy publishes a daily cap but not the number. Echo a
+        policy name here, and use X-RateLimit-Limit, X-RateLimit-Remaining,
+        and X-RateLimit-Reset when you are ready to publish counts.
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Missing or rejected credential.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: about:blank
+            title: unauthorized
+            status: 401
+            code: unauthorized
+            detail: Sign in again.
+    BadRequest:
+      description: The body failed validation. A decline with no reason is a 400.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: No introduction with that id for this member.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: about:blank
+            title: not_found
+            status: 404
+            code: not_found
+            detail: No introduction with that id.
+    IntroCap:
+      description: |
+        The member hit a cap the FAQ describes. The numeric limit is not part
+        of this proposal. Say which cap in `detail` once Boardy wants it public
+        (new introductions per day, or introductions to potential customers).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: about:blank
+            title: intro_cap
+            status: 429
+            code: intro_cap
+            detail: The daily cap on new introductions has been reached. The number is Boardy's to publish.
+
+  schemas:
+    Problem:
+      type: object
+      required: [title, status, code, detail]
+      properties:
+        type:
+          type: string
+          format: uri
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+          enum: [unauthorized, validation, not_found, intro_cap, upstream]
+        detail:
+          type: string
+
+    IntroStatus:
+      type: string
+      description: |
+        Proposed. These words are not from a Boardy response. They summarize
+        the public flow: you ask, a person is suggested, you respond, they
+        respond, you meet, or nobody fit.
+      enum:
+        - requested
+        - awaiting_you
+        - awaiting_them
+        - in_progress
+        - scheduled
+        - declined
+        - expired
+        - completed
+        - no_fit
+
+    Decision:
+      type: string
+      enum: [pending, accepted, declined]
+
+    LookingForKind:
+      type: string
+      description: Categories named on Boardy's public pages.
+      enum: [customers, investors, hires, job, partners, cofounder, suppliers, expert, other]
+
+    LookingFor:
+      type: object
+      required: [id, kind, description, why, active]
+      properties:
+        id:
+          type: string
+        kind:
+          $ref: "#/components/schemas/LookingForKind"
+        description:
+          type: string
+          description: Narrow enough to search on. Stage, sector, role, buyer, or geography.
+        why:
+          type: string
+        active:
+          type: boolean
+
+    LookingForInput:
+      type: object
+      required: [kind, description, why]
+      properties:
+        kind:
+          $ref: "#/components/schemas/LookingForKind"
+        description:
+          type: string
+        why:
+          type: string
+        active:
+          type: boolean
+          default: true
+
+    LookingForUpdate:
+      type: object
+      required: [lookingFor]
+      properties:
+        lookingFor:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/LookingForInput"
+        howItsGoing:
+          type: string
+          description: A real status. Do not require the client to invent a number.
+        biggestProblem:
+          type: string
+        asOf:
+          type: string
+          description: Month and year, such as November 2026.
+          examples: ["November 2026"]
+
+    Brief:
+      type: object
+      description: Sections of the public email brief. Omit a field you do not know.
+      properties:
+        whoTheyAre:
+          type: string
+        asOf:
+          type: string
+        howItsGoing:
+          type: string
+        biggestProblem:
+          type: string
+        whoTheyWantToMeet:
+          type: string
+        whyNow:
+          type: string
+        whatTheyCanOffer:
+          type: string
+        notes:
+          type: string
+          description: Tools and other match context. Not contract terms or pricing.
+        keepPrivate:
+          type: string
+          description: Facts Boardy may use but must not repeat in an introduction.
+
+    ProfileLinks:
+      type: object
+      properties:
+        linkedin:
+          type: string
+          format: uri
+        x:
+          type: string
+          format: uri
+        github:
+          type: string
+          format: uri
+        website:
+          type: string
+          format: uri
+        portfolio:
+          type: string
+          format: uri
+
+    Profile:
+      type: object
+      required: [origin, fixture, notice, fullName, links, brief, lookingFor]
+      properties:
+        origin:
+          type: string
+          enum: [fixture, local_config, api]
+        fixture:
+          type: boolean
+          description: True when the record was invented for a demo.
+        notice:
+          type: string
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+        company:
+          type: string
+        location:
+          type: string
+        timezone:
+          type: string
+        links:
+          $ref: "#/components/schemas/ProfileLinks"
+        brief:
+          $ref: "#/components/schemas/Brief"
+        lookingFor:
+          type: array
+          items:
+            $ref: "#/components/schemas/LookingFor"
+
+    Counterparty:
+      type: object
+      required: [name, headline, whyThem]
+      properties:
+        name:
+          type: string
+        headline:
+          type: string
+        company:
+          type: string
+        location:
+          type: string
+        whyThem:
+          type: string
+        linkedinUrl:
+          type: string
+          format: uri
+          description: Public profile URL only.
+
+    SharedContact:
+      type: object
+      description: |
+        Present only after both people have agreed. The FAQ says email and
+        phone are shared only then.
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+
+    Meeting:
+      type: object
+      required: [startsAt, url, provider]
+      properties:
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        url:
+          type: string
+          format: uri
+        provider:
+          type: string
+          enum: [google_meet, zoom, teams, other]
+
+    Intro:
+      type: object
+      required: [id, status, createdAt, updatedAt, goal, summary, fixture, notice]
+      properties:
+        id:
+          type: string
+        status:
+          $ref: "#/components/schemas/IntroStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        goal:
+          type: string
+        summary:
+          type: string
+        fixture:
+          type: boolean
+        notice:
+          type: string
+        counterparty:
+          $ref: "#/components/schemas/Counterparty"
+        yourDecision:
+          $ref: "#/components/schemas/Decision"
+        theirDecision:
+          $ref: "#/components/schemas/Decision"
+        declineReason:
+          type: string
+        proposedTimes:
+          type: array
+          items:
+            type: string
+            format: date-time
+        sharedContact:
+          $ref: "#/components/schemas/SharedContact"
+        meeting:
+          $ref: "#/components/schemas/Meeting"
+
+    IntroPage:
+      type: object
+      required: [intros]
+      properties:
+        fixture:
+          type: boolean
+        intros:
+          type: array
+          items:
+            $ref: "#/components/schemas/Intro"
+        nextCursor:
+          type: ["string", "null"]
+
+    IntroRequest:
+      type: object
+      required: [goal, subject, body]
+      properties:
+        goal:
+          type: string
+          description: Who the member wants to meet.
+        subject:
+          type: string
+        body:
+          type: string
+          description: |
+            The approved brief. Keep the section headings from the public
+            guide so a reviewer can see what was shared.
+        linkedinUrl:
+          type: string
+          format: uri
+          description: Required before a search, per the public guide.
+
+    IntroRequestResult:
+      type: object
+      required: [intro]
+      properties:
+        fixture:
+          type: boolean
+        intro:
+          allOf:
+            - $ref: "#/components/schemas/Intro"
+          description: Status is requested until a person is suggested.
+        note:
+          type: string
+
+    IntroResponse:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [accept, decline, propose_times]
+        reason:
+          type: string
+          description: Required when decision is decline.
+        times:
+          type: array
+          minItems: 1
+          maxItems: 5
+          description: Required when decision is propose_times.
+          items:
+            type: string
+            format: date-time
+
+    IntroEnvelope:
+      type: object
+      required: [intro]
+      properties:
+        fixture:
+          type: boolean
+        intro:
+          $ref: "#/components/schemas/Intro"

@@ -1,0 +1,61 @@
+{
+  "name": "boardy-mcp",
+  "version": "0.1.0",
+  "description": "Unofficial MCP server for Boardy. Fixture data you can demo today, an email-protocol backend for the public agent guide, and a proposed HTTP API for when Boardy ships one.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Adam Pangelinan (https://github.com/adamtpang)",
+  "homepage": "https://github.com/adamtpang/boardymcp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adamtpang/boardymcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/adamtpang/boardymcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "boardy",
+    "modelcontextprotocol"
+  ],
+  "bin": {
+    "boardy-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "spec",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --experimental-strip-types src/index.ts",
+    "start": "node dist/index.js",
+    "start:http": "node dist/index.js http",
+    "start:api": "node dist/index.js api",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "smoke": "node dist/smoke.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "^2.1.0",
+    "@modelcontextprotocol/node": "^2.1.0",
+    "@modelcontextprotocol/server": "^2.1.0",
+    "nodemailer": "^7.0.10",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^22.19.1",
+    "@types/nodemailer": "^7.0.4",
+    "eslint": "^9.39.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.3",
+    "vitest": "^3.2.4",
+    "yaml": "^2.8.1"
+  }
+}
